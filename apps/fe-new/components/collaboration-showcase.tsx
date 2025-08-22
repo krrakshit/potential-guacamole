@@ -37,7 +37,7 @@ export function CollaborationShowcase() {
                 <div>
                   <h3 className="text-lg font-semibold text-foreground mb-2">Sketch together</h3>
                   <p className="text-muted-foreground">
-                    See everyone's cursors and changes in real-time. No more "can you see my screen?"
+                    See everyone`&apos;`s cursors and changes in real-time. No more `&apos;`can you see my screen?`&apos;`
                   </p>
                 </div>
               </div>

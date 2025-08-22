@@ -53,7 +53,7 @@ export function TestimonialsSection() {
                   ))}
                 </div>
 
-                <blockquote className="text-card-foreground mb-6 leading-relaxed">"{testimonial.content}"</blockquote>
+                <blockquote className="text-card-foreground mb-6 leading-relaxed">`&apos;`{testimonial.content}`&apos;`</blockquote>
 
                 <div className="flex items-center space-x-3">
                   <Avatar>
