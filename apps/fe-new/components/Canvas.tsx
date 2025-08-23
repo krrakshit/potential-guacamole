@@ -13,31 +13,62 @@ export function Canvas({
 }) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const [game, setGame] = useState<Game>();
-    const [selectedTool, setSelectedTool] = useState<Tool>("circle")
+    const [selectedTool, setSelectedTool] = useState<Tool>("circle");
+    const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+
+    // Handle window resize and set initial canvas size
+    useEffect(() => {
+        const updateCanvasSize = () => {
+            setCanvasSize({
+                width: window.innerWidth,
+                height: window.innerHeight
+            });
+        };
+
+        // Set initial size
+        updateCanvasSize();
+
+        // Add resize listener
+        window.addEventListener('resize', updateCanvasSize);
+
+        return () => {
+            window.removeEventListener('resize', updateCanvasSize);
+        };
+    }, []);
 
     useEffect(() => {
         game?.setTool(selectedTool);
     }, [selectedTool, game]);
 
     useEffect(() => {
-
         if (canvasRef.current) {
             const g = new Game(canvasRef.current, roomId);
             setGame(g);
+
+            // Set canvas background to black
+            const ctx = canvasRef.current.getContext('2d');
+            if (ctx) {
+                ctx.fillStyle = 'black';
+                ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
+            }
 
             return () => {
                 g.destroy();
             }
         }
-
-
-    }, [canvasRef]);
+    }, [canvasRef, roomId, canvasSize]);
 
     return <div style={{
         height: "100vh",
-        overflow: "hidden"
+        overflow: "hidden",
+        backgroundColor: "black"
     }}>
-        <canvas ref={canvasRef} width={window.innerWidth} height={window.innerHeight}></canvas>
+        <canvas 
+            ref={canvasRef} 
+            width={canvasSize.width} 
+            height={canvasSize.height}
+            style={{ backgroundColor: "black" }}
+        ></canvas>
         <Topbar setSelectedTool={setSelectedTool} selectedTool={selectedTool} />
     </div>
 }
