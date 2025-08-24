@@ -1,5 +1,6 @@
 import { Tool } from "@/components/Canvas";
 import { getExistingShapes } from "./http";
+import { WS_URL } from "@/config";
 
 type Shape =
   | {
@@ -51,6 +52,7 @@ export class Game {
   private startY = 0;
   private selectedTool: Tool = "circle";
   private currentPencilPath: { x: number; y: number }[] = [];
+  private socket: WebSocket | null = null;
 
   constructor(canvas: HTMLCanvasElement, roomId: string) {
     this.canvas = canvas;
@@ -60,14 +62,19 @@ export class Game {
     this.clicked = false;
     this.init();
     this.initMouseHandlers();
+    this.initWebSocket();
   }
 
   destroy() {
     this.canvas.removeEventListener("mousedown", this.mouseDownHandler);
-
     this.canvas.removeEventListener("mouseup", this.mouseUpHandler);
-
     this.canvas.removeEventListener("mousemove", this.mouseMoveHandler);
+
+    // Close WebSocket connection
+    if (this.socket) {
+      this.socket.close();
+      this.socket = null;
+    }
   }
 
   setTool(tool: Tool) {
@@ -166,8 +173,7 @@ export class Game {
 
       // Special handling for lines and arrows - remove ALL that match
       const linesToRemove: number[] = [];
-
-      // First pass: find all lines and arrows to remove
+      let shapeToRemoveIndex = -1; // First pass: find all lines and arrows to remove
       for (let i = 0; i < this.existingShapes.length; i++) {
         const shape = this.existingShapes[i];
         if (shape.type === "line" || shape.type === "arrow") {
@@ -192,8 +198,6 @@ export class Game {
 
       // If no lines were removed, check for other shapes (topmost only)
       if (linesToRemove.length === 0) {
-        let shapeToRemoveIndex = -1;
-
         // Find the last (topmost) shape that matches the click for other shapes
         for (let i = this.existingShapes.length - 1; i >= 0; i--) {
           const shape = this.existingShapes[i];
@@ -245,6 +249,14 @@ export class Game {
         if (shapeToRemoveIndex !== -1) {
           this.existingShapes.splice(shapeToRemoveIndex, 1);
         }
+      }
+
+      // Broadcast the erasing event if any changes were made
+      if (
+        linesToRemove.length > 0 ||
+        (linesToRemove.length === 0 && shapeToRemoveIndex !== -1)
+      ) {
+        this.broadcastErase();
       }
 
       this.clearCanvas();
@@ -314,6 +326,7 @@ export class Game {
     }
 
     this.existingShapes.push(shape);
+    this.broadcastShape(shape);
     this.clearCanvas();
   };
   mouseMoveHandler = (e: MouseEvent) => {
@@ -406,6 +419,87 @@ export class Game {
     this.canvas.addEventListener("mouseup", this.mouseUpHandler);
 
     this.canvas.addEventListener("mousemove", this.mouseMoveHandler);
+  }
+
+  initWebSocket() {
+    try {
+      this.socket = new WebSocket(WS_URL);
+
+      this.socket.onopen = () => {
+        console.log("WebSocket connected for room:", this.roomId);
+        // Join the room
+        this.sendMessage({
+          type: "join-room",
+          roomId: this.roomId,
+        });
+      };
+
+      this.socket.onmessage = (event) => {
+        try {
+          const message = JSON.parse(event.data);
+          this.handleWebSocketMessage(message);
+        } catch (error) {
+          console.error("Error parsing WebSocket message:", error);
+        }
+      };
+
+      this.socket.onclose = () => {
+        console.log("WebSocket disconnected");
+        // Attempt to reconnect after 3 seconds
+        setTimeout(() => {
+          if (!this.socket || this.socket.readyState === WebSocket.CLOSED) {
+            this.initWebSocket();
+          }
+        }, 3000);
+      };
+
+      this.socket.onerror = (error) => {
+        console.error("WebSocket error:", error);
+      };
+    } catch (error) {
+      console.error("Failed to initialize WebSocket:", error);
+    }
+  }
+
+  handleWebSocketMessage(message: any) {
+    if (message.type === "shape-added" && message.roomId === this.roomId) {
+      // Add the shape from other users
+      this.existingShapes.push(message.shape);
+      this.clearCanvas();
+    } else if (
+      message.type === "shapes-erased" &&
+      message.roomId === this.roomId
+    ) {
+      // Handle erasing from other users
+      this.existingShapes = message.shapes;
+      this.clearCanvas();
+    }
+  }
+
+  broadcastShape(shape: Shape) {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this.sendMessage({
+        type: "shape-added",
+        roomId: this.roomId,
+        shape: shape,
+      });
+    }
+  }
+
+  broadcastErase() {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this.sendMessage({
+        type: "shapes-erased",
+        roomId: this.roomId,
+        shapes: this.existingShapes,
+      });
+    }
+  }
+
+  private sendMessage(message: any) {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify(message));
+    }
   }
 }
 
