@@ -50,16 +50,24 @@ export class Game {
   private clicked: boolean;
   private startX = 0;
   private startY = 0;
-  private selectedTool: Tool = "circle";
+  private selectedTool: Tool = "pencil"; // Default to pencil instead of circle
   private currentPencilPath: { x: number; y: number }[] = [];
   private socket: WebSocket | null = null;
+  private theme: "light" | "dark" = "dark";
 
-  constructor(canvas: HTMLCanvasElement, roomId: string) {
+  constructor(
+    canvas: HTMLCanvasElement,
+    roomId: string,
+    initialTool: Tool = "pencil",
+    theme: "light" | "dark" = "dark"
+  ) {
     this.canvas = canvas;
     this.ctx = canvas.getContext("2d")!;
     this.existingShapes = [];
     this.roomId = roomId;
     this.clicked = false;
+    this.selectedTool = initialTool; // Use the provided initial tool
+    this.theme = theme; // Store theme for drawing colors
     this.init();
     this.initMouseHandlers();
     this.initWebSocket();
@@ -81,6 +89,23 @@ export class Game {
     this.selectedTool = tool;
   }
 
+  setTheme(theme: "light" | "dark") {
+    this.theme = theme;
+    this.clearCanvas(); // Redraw with new theme colors
+  }
+
+  handleResize() {
+    // Redraw everything after canvas resize
+    this.clearCanvas();
+  }
+
+  private getThemeColors() {
+    return {
+      background: this.theme === "dark" ? "#1a1a1a" : "#f8f9fa",
+      stroke: this.theme === "dark" ? "#ffffff" : "#000000",
+    };
+  }
+
   async init() {
     this.existingShapes = await getExistingShapes(this.roomId);
     console.log(this.existingShapes);
@@ -88,12 +113,16 @@ export class Game {
   }
 
   clearCanvas() {
+    const colors = this.getThemeColors();
+
     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
-    this.ctx.fillStyle = "rgba(0, 0, 0, 1)";
+    // Set the background color based on theme
+    this.ctx.fillStyle = colors.background;
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
     this.existingShapes.map((shape) => {
-      this.ctx.strokeStyle = "rgba(255, 255, 255, 1)";
+      this.ctx.strokeStyle = colors.stroke; // Use theme-appropriate stroke color
+      this.ctx.lineWidth = 2; // Make sure all strokes are visible
       if (shape.type === "rect") {
         this.ctx.strokeRect(shape.x, shape.y, shape.width, shape.height);
       } else if (shape.type === "circle") {
@@ -340,7 +369,9 @@ export class Game {
         this.currentPencilPath.push({ x: currentX, y: currentY });
 
         // Draw the line segment
-        this.ctx.strokeStyle = "rgba(255, 255, 255, 1)";
+        const colors = this.getThemeColors();
+        this.ctx.strokeStyle = colors.stroke; // Use theme-appropriate color
+        this.ctx.lineWidth = 2; // Make sure line is visible
         this.ctx.beginPath();
         if (this.currentPencilPath.length > 1) {
           const prevPoint =
@@ -355,7 +386,9 @@ export class Game {
         const width = currentX - this.startX;
         const height = currentY - this.startY;
         this.clearCanvas();
-        this.ctx.strokeStyle = "rgba(255, 255, 255, 1)";
+
+        const colors = this.getThemeColors();
+        this.ctx.strokeStyle = colors.stroke; // Use theme-appropriate color
         const selectedTool = this.selectedTool;
         if (selectedTool === "rect") {
           this.ctx.strokeRect(this.startX, this.startY, width, height);
