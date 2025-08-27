@@ -99,12 +99,21 @@ export function Canvas({
                 // Get current canvas data and send to WebSocket server for the new room
                 const currentShapes = game.getCurrentShapes();
                 game.sendShapesToRoom(generatedRoomId, currentShapes);
+                
+                // Also store the canvas data in localStorage for the new room
+                const canvasData = game.exportCanvasData();
+                const storageKey = `canvas_data_${generatedRoomId}`;
+                localStorage.setItem(storageKey, canvasData);
+            } else {
+                // For blank canvas, just store empty data
+                const emptyCanvasData = JSON.stringify({
+                    shapes: [],
+                    timestamp: Date.now(),
+                    roomId: generatedRoomId
+                });
+                const storageKey = `canvas_data_${generatedRoomId}`;
+                localStorage.setItem(storageKey, emptyCanvasData);
             }
-            
-            // Store the canvas data in localStorage for the new room
-            const canvasData = game.exportCanvasData();
-            const storageKey = `canvas_data_${generatedRoomId}`;
-            localStorage.setItem(storageKey, canvasData);
             
             // Generate the sharing URL
             const baseUrl = window.location.origin;

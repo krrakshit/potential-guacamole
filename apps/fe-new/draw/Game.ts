@@ -165,6 +165,23 @@ export class Game {
         targetRoomId: targetRoomId,
         shapes: shapes,
       });
+      
+      // Also send a message to store the data on the server for the target room
+      this.sendMessage({
+        type: "store-room-data",
+        roomId: targetRoomId,
+        shapes: shapes,
+      });
+    }
+  }
+
+  // Public method to request room data
+  requestRoomData() {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this.sendMessage({
+        type: "request-room-data",
+        roomId: this.roomId,
+      });
     }
   }
 
@@ -218,6 +235,14 @@ export class Game {
     }
     
     this.clearCanvas();
+    
+    // Request room data from WebSocket server if we have a room ID
+    if (this.roomId && this.roomId.trim() !== '') {
+      // Wait a bit for WebSocket to connect, then request data
+      setTimeout(() => {
+        this.requestRoomData();
+      }, 1000);
+    }
   }
 
   clearCanvas() {
@@ -575,6 +600,11 @@ export class Game {
           type: "join-room",
           roomId: this.roomId,
         });
+        
+        // Also request room data immediately after joining
+        setTimeout(() => {
+          this.requestRoomData();
+        }, 500);
       };
 
       this.socket.onmessage = (event) => {
@@ -629,6 +659,36 @@ export class Game {
         this.clearCanvas();
         console.log('Received shared canvas data:', message.shapes.length, 'shapes');
       }
+    } else if (
+      message.type === "room-joined" &&
+      message.roomId === this.roomId
+    ) {
+      // Handle when we successfully join a room
+      console.log('Successfully joined room:', this.roomId);
+      // Request existing canvas data for this room
+      this.requestRoomData();
+    } else if (
+      message.type === "room-data" &&
+      message.roomId === this.roomId
+    ) {
+      // Handle receiving existing room data
+      if (message.shapes && Array.isArray(message.shapes)) {
+        this.existingShapes = message.shapes;
+        this.saveToLocalStorage();
+        this.clearCanvas();
+        console.log('Received room data:', message.shapes.length, 'shapes');
+      }
+    } else if (
+      message.type === "canvas-state" &&
+      message.roomId === this.roomId
+    ) {
+      // Handle receiving canvas state from other users
+      if (message.shapes && Array.isArray(message.shapes)) {
+        this.existingShapes = message.shapes;
+        this.saveToLocalStorage();
+        this.clearCanvas();
+        console.log('Received canvas state:', message.shapes.length, 'shapes');
+      }
     }
   }
 
@@ -646,6 +706,17 @@ export class Game {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       this.sendMessage({
         type: "shapes-erased",
+        roomId: this.roomId,
+        shapes: this.existingShapes,
+      });
+    }
+  }
+
+  // Public method to broadcast current canvas state to room
+  broadcastCanvasState() {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this.sendMessage({
+        type: "canvas-state",
         roomId: this.roomId,
         shapes: this.existingShapes,
       });
