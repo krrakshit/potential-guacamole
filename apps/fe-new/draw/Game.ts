@@ -151,6 +151,23 @@ export class Game {
     return false;
   }
 
+  // Public method to get current shapes
+  getCurrentShapes(): Shape[] {
+    return [...this.existingShapes];
+  }
+
+  // Public method to send shapes to a specific room
+  sendShapesToRoom(targetRoomId: string, shapes: Shape[]) {
+    if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+      this.sendMessage({
+        type: "share-canvas-data",
+        sourceRoomId: this.roomId,
+        targetRoomId: targetRoomId,
+        shapes: shapes,
+      });
+    }
+  }
+
   destroy() {
     this.canvas.removeEventListener("mousedown", this.mouseDownHandler);
     this.canvas.removeEventListener("mouseup", this.mouseUpHandler);
@@ -601,6 +618,17 @@ export class Game {
       this.existingShapes = message.shapes;
       this.saveToLocalStorage(); // Save to localStorage when shapes are erased by other users
       this.clearCanvas();
+    } else if (
+      message.type === "canvas-data-shared" &&
+      message.targetRoomId === this.roomId
+    ) {
+      // Handle shared canvas data from another room
+      if (message.shapes && Array.isArray(message.shapes)) {
+        this.existingShapes = [...this.existingShapes, ...message.shapes];
+        this.saveToLocalStorage();
+        this.clearCanvas();
+        console.log('Received shared canvas data:', message.shapes.length, 'shapes');
+      }
     }
   }
 
