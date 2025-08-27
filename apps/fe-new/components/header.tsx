@@ -1,5 +1,6 @@
 import { Button } from "@/components/ui/button"
-import { Pen, Menu } from "lucide-react"
+import { Pen } from "lucide-react"
+import Link from "next/link"
 
 export function Header() {
   return (
@@ -12,29 +13,12 @@ export function Header() {
           <span className="text-xl font-bold text-primary">SketchBoard</span>
         </div>
 
-        <nav className="hidden md:flex items-center space-x-8">
-          <a href="#features" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
-            Features
-          </a>
-          <a href="#collaboration" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
-            Collaboration
-          </a>
-          <a href="#testimonials" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
-            Testimonials
-          </a>
-          <a href="#pricing" className="text-sm font-medium text-foreground hover:text-primary transition-colors">
-            Pricing
-          </a>
-        </nav>
-
         <div className="flex items-center space-x-4">
-          <Button variant="ghost" className="hidden md:inline-flex">
-            Sign In
-          </Button>
-          <Button className="bg-accent hover:bg-accent/90 text-accent-foreground">Get Started</Button>
-          <Button variant="ghost" size="icon" className="md:hidden">
-            <Menu className="w-5 h-5" />
-          </Button>
+          <Link href="/canvas">
+            <Button className="bg-accent hover:bg-accent/90 text-accent-foreground">
+              Get Started
+            </Button>
+          </Link>
         </div>
       </div>
     </header>

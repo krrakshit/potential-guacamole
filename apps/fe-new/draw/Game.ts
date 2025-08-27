@@ -73,6 +73,84 @@ export class Game {
     this.initWebSocket();
   }
 
+  // Local storage methods
+  private getStorageKey(): string {
+    return `canvas_data_${this.roomId}`;
+  }
+
+  private saveToLocalStorage(): void {
+    try {
+      const storageKey = this.getStorageKey();
+      const dataToSave = {
+        shapes: this.existingShapes,
+        timestamp: Date.now(),
+        roomId: this.roomId
+      };
+      localStorage.setItem(storageKey, JSON.stringify(dataToSave));
+      console.log('Canvas data saved to localStorage:', storageKey);
+    } catch (error) {
+      console.error('Error saving to localStorage:', error);
+    }
+  }
+
+  private loadFromLocalStorage(): Shape[] {
+    try {
+      const storageKey = this.getStorageKey();
+      const savedData = localStorage.getItem(storageKey);
+      
+      if (savedData) {
+        const parsedData = JSON.parse(savedData);
+        console.log('Canvas data loaded from localStorage:', storageKey);
+        return parsedData.shapes || [];
+      }
+    } catch (error) {
+      console.error('Error loading from localStorage:', error);
+    }
+    return [];
+  }
+
+  private clearLocalStorage(): void {
+    try {
+      const storageKey = this.getStorageKey();
+      localStorage.removeItem(storageKey);
+      console.log('Canvas data cleared from localStorage:', storageKey);
+    } catch (error) {
+      console.error('Error clearing localStorage:', error);
+    }
+  }
+
+  // Public method to clear canvas and localStorage
+  clearCanvasAndStorage(): void {
+    this.existingShapes = [];
+    this.clearLocalStorage();
+    this.clearCanvas();
+  }
+
+  // Public method to export canvas data
+  exportCanvasData(): string {
+    return JSON.stringify({
+      shapes: this.existingShapes,
+      timestamp: Date.now(),
+      roomId: this.roomId
+    });
+  }
+
+  // Public method to import canvas data
+  importCanvasData(data: string): boolean {
+    try {
+      const parsedData = JSON.parse(data);
+      if (parsedData.shapes && Array.isArray(parsedData.shapes)) {
+        this.existingShapes = parsedData.shapes;
+        this.saveToLocalStorage();
+        this.clearCanvas();
+        return true;
+      }
+    } catch (error) {
+      console.error('Error importing canvas data:', error);
+    }
+    return false;
+  }
+
   destroy() {
     this.canvas.removeEventListener("mousedown", this.mouseDownHandler);
     this.canvas.removeEventListener("mouseup", this.mouseUpHandler);
@@ -107,8 +185,21 @@ export class Game {
   }
 
   async init() {
-    this.existingShapes = await getExistingShapes(this.roomId);
-    console.log(this.existingShapes);
+    // First try to load from localStorage
+    const localShapes = this.loadFromLocalStorage();
+    
+    if (localShapes.length > 0) {
+      // Use local storage data if available
+      this.existingShapes = localShapes;
+      console.log('Loaded shapes from localStorage:', this.existingShapes.length);
+    } else {
+      // Fall back to server data if no local storage
+      this.existingShapes = await getExistingShapes(this.roomId);
+      console.log('Loaded shapes from server:', this.existingShapes.length);
+      // Save server data to localStorage
+      this.saveToLocalStorage();
+    }
+    
     this.clearCanvas();
   }
 
@@ -285,6 +376,7 @@ export class Game {
         linesToRemove.length > 0 ||
         (linesToRemove.length === 0 && shapeToRemoveIndex !== -1)
       ) {
+        this.saveToLocalStorage(); // Save to localStorage when shapes are erased
         this.broadcastErase();
       }
 
@@ -355,6 +447,7 @@ export class Game {
     }
 
     this.existingShapes.push(shape);
+    this.saveToLocalStorage(); // Save to localStorage when shape is added
     this.broadcastShape(shape);
     this.clearCanvas();
   };
@@ -498,6 +591,7 @@ export class Game {
     if (message.type === "shape-added" && message.roomId === this.roomId) {
       // Add the shape from other users
       this.existingShapes.push(message.shape);
+      this.saveToLocalStorage(); // Save to localStorage when shape is added from other users
       this.clearCanvas();
     } else if (
       message.type === "shapes-erased" &&
@@ -505,6 +599,7 @@ export class Game {
     ) {
       // Handle erasing from other users
       this.existingShapes = message.shapes;
+      this.saveToLocalStorage(); // Save to localStorage when shapes are erased by other users
       this.clearCanvas();
     }
   }
