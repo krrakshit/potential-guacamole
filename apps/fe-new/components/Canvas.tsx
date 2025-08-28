@@ -1,7 +1,7 @@
 "use client"
 import { useEffect, useRef, useState } from "react";
 import { IconButton } from "./IconButton";
-import { Circle, Pencil, RectangleHorizontalIcon, ArrowRight, Eraser, Minus, Diamond, Sun, Moon, Trash2, Download, Share2 } from "lucide-react";
+import { Circle, Pencil, RectangleHorizontalIcon, ArrowRight, Eraser, Minus, Diamond, Sun, Moon, Trash2, Download, Share2, Monitor, MonitorOff } from "lucide-react";
 import { Game } from "@/draw/Game";
 
 export type Tool = "circle" | "rect" | "pencil" | "line" | "arrow" | "erase" | "diamond";
@@ -36,6 +36,7 @@ export function Canvas({
     const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
     const [showShareModal, setShowShareModal] = useState(false);
     const [generatedRoomId, setGeneratedRoomId] = useState<string>("");
+    const [isScreenSharing, setIsScreenSharing] = useState(false);
 
     const themeColors = {
         dark: {
@@ -83,12 +84,167 @@ export function Canvas({
         return result;
     };
 
+    // Start screen sharing and set localStorage flag
+    const startScreenSharing = () => {
+        localStorage.setItem('isSharing', 'true');
+        console.log('Screen sharing started - isSharing set to true');
+    };
+
+    // Stop screen sharing and clear localStorage flag
+    const stopScreenSharing = () => {
+        localStorage.setItem('isSharing', 'false');
+        console.log('Screen sharing stopped - isSharing set to false');
+    };
+
+    // Check if screen sharing is currently active
+    const isScreenSharingActive = () => {
+        return localStorage.getItem('isSharing') === 'true';
+    };
+
+    // Toggle screen sharing
+    const toggleScreenSharing = () => {
+        const currentStatus = localStorage.getItem('isSharing') === 'true';
+        const newStatus = !currentStatus;
+        localStorage.setItem('isSharing', newStatus.toString());
+        setIsScreenSharing(newStatus);
+        
+        // Show notification
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${themeColors[theme].ui};
+            color: ${themeColors[theme].text};
+            border: 1px solid ${themeColors[theme].border};
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+            max-width: 300px;
+            font-size: 14px;
+        `;
+        notification.innerHTML = `
+            <div style="font-weight: 600; margin-bottom: 8px;">
+                ${newStatus ? 'Screen Sharing Started' : 'Screen Sharing Stopped'}
+            </div>
+            <div style="color: ${themeColors[theme].text === '#ffffff' ? '#10b981' : '#059669'}; font-size: 12px;">
+                ${newStatus ? '✓ Screen sharing is now active' : '✗ Screen sharing is now inactive'}
+            </div>
+        `;
+        document.body.appendChild(notification);
+        
+        // Remove notification after 3 seconds
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 3000);
+        
+        if (newStatus) {
+            console.log('Screen sharing started');
+        } else {
+            console.log('Screen sharing stopped');
+        }
+    };
+
     // Share canvas functionality
     const shareCanvas = () => {
-        if (game) {
-            const newRoomId = generateRoomId();
-            setGeneratedRoomId(newRoomId);
-            setShowShareModal(true);
+        // Check if screen sharing is already active
+        const isSharing = localStorage.getItem('isSharing') === 'true';
+        
+        if (isSharing && roomId) {
+            // If already sharing, use current canvas URL
+            const baseUrl = window.location.origin;
+            const currentCanvasUrl = `${baseUrl}/canvas/${roomId}`;
+            
+            // Copy current URL to clipboard
+            navigator.clipboard.writeText(currentCanvasUrl).then(() => {
+                // Create a temporary notification
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: ${themeColors[theme].ui};
+                    color: ${themeColors[theme].text};
+                    border: 1px solid ${themeColors[theme].border};
+                    border-radius: 8px;
+                    padding: 16px;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                    z-index: 1000;
+                    max-width: 300px;
+                    font-size: 14px;
+                `;
+                notification.innerHTML = `
+                    <div style="font-weight: 600; margin-bottom: 8px;">Canvas URL Copied!</div>
+                    <div style="margin-bottom: 12px; word-break: break-all;">${currentCanvasUrl}</div>
+                    <div style="color: ${themeColors[theme].text === '#ffffff' ? '#10b981' : '#059669'}; font-size: 12px;">
+                        ✓ Current canvas URL copied to clipboard
+                    </div>
+                    <div style="color: ${themeColors[theme].text === '#ffffff' ? '#fbbf24' : '#d97706'}; font-size: 12px; margin-top: 8px;">
+                        📺 Screen sharing is already active
+                    </div>
+                `;
+                document.body.appendChild(notification);
+                
+                // Remove notification after 4 seconds
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 4000);
+            }).catch(() => {
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = currentCanvasUrl;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+                
+                // Show fallback notification
+                const notification = document.createElement('div');
+                notification.style.cssText = `
+                    position: fixed;
+                    top: 20px;
+                    right: 20px;
+                    background: ${themeColors[theme].ui};
+                    color: ${themeColors[theme].text};
+                    border: 1px solid ${themeColors[theme].border};
+                    border-radius: 8px;
+                    padding: 16px;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+                    z-index: 1000;
+                    max-width: 300px;
+                    font-size: 14px;
+                `;
+                notification.innerHTML = `
+                    <div style="font-weight: 600; margin-bottom: 8px;">Canvas URL Copied!</div>
+                    <div style="margin-bottom: 12px; word-break: break-all;">${currentCanvasUrl}</div>
+                    <div style="color: ${themeColors[theme].text === '#ffffff' ? '#10b981' : '#059669'}; font-size: 12px;">
+                        ✓ Current canvas URL copied to clipboard
+                    </div>
+                    <div style="color: ${themeColors[theme].text === '#ffffff' ? '#fbbf24' : '#d97706'}; font-size: 12px; margin-top: 8px;">
+                        📺 Screen sharing is already active
+                    </div>
+                `;
+                document.body.appendChild(notification);
+                
+                // Remove notification after 4 seconds
+                setTimeout(() => {
+                    if (notification.parentNode) {
+                        notification.parentNode.removeChild(notification);
+                    }
+                }, 4000);
+            });
+        } else {
+            // If not sharing, generate new room ID and show modal
+            if (game) {
+                const newRoomId = generateRoomId();
+                setGeneratedRoomId(newRoomId);
+                setShowShareModal(true);
+            }
         }
     };
 
@@ -200,6 +356,9 @@ export function Canvas({
                 }, 4000);
             });
             
+            // Set screen sharing flag to true when navigating to new room
+            localStorage.setItem('isSharing', 'true');
+            
             // Navigate to the new room
             window.location.href = `/canvas/${generatedRoomId}`;
         }
@@ -229,6 +388,12 @@ export function Canvas({
         };
     }, []);
 
+    // Check screen sharing status on mount
+    useEffect(() => {
+        const sharingStatus = localStorage.getItem('isSharing') === 'true';
+        setIsScreenSharing(sharingStatus);
+    }, []);
+
     useEffect(() => {
         game?.setTool(selectedTool);
     }, [selectedTool, game]);
@@ -241,6 +406,18 @@ export function Canvas({
         if (canvasRef.current && !game) {
             const g = new Game(canvasRef.current, roomId || "", selectedTool, theme);
             setGame(g);
+
+            // If user navigates to a specific room (not null), it might be a shared session
+            if (roomId) {
+                // Check if this is a shared session by looking for existing canvas data
+                const storageKey = `canvas_data_${roomId}`;
+                const existingData = localStorage.getItem(storageKey);
+                if (existingData) {
+                    // This room has existing data, likely a shared session
+                    localStorage.setItem('isSharing', 'true');
+                    setIsScreenSharing(true);
+                }
+            }
 
             return () => {
                 g.destroy();
@@ -275,6 +452,8 @@ export function Canvas({
             clearCanvasAndStorage={clearCanvasAndStorage}
             exportCanvasAsImage={exportCanvasAsImage}
             shareCanvas={shareCanvas}
+            isScreenSharing={isScreenSharing}
+            toggleScreenSharing={toggleScreenSharing}
         />
         
         {/* Share Modal */}
@@ -308,6 +487,23 @@ export function Canvas({
                     }}>
                         Share Canvas
                     </h3>
+                    
+                    {isScreenSharing && (
+                        <div style={{
+                            margin: '0 0 16px 0',
+                            padding: '8px 12px',
+                            backgroundColor: themeColors[theme].text === '#ffffff' ? '#10b981' : '#059669',
+                            color: '#ffffff',
+                            borderRadius: '6px',
+                            fontSize: '14px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                        }}>
+                            <Monitor size={16} />
+                            Screen sharing is active - new room will be shared
+                        </div>
+                    )}
                     
                     <p style={{
                         margin: '0 0 20px 0',
@@ -431,7 +627,9 @@ function Topbar({
     themeColors,
     clearCanvasAndStorage,
     exportCanvasAsImage,
-    shareCanvas
+    shareCanvas,
+    isScreenSharing,
+    toggleScreenSharing
 }: {
     selectedTool: Tool,
     setSelectedTool: (s: Tool) => void,
@@ -440,7 +638,9 @@ function Topbar({
     themeColors: ThemeColors,
     clearCanvasAndStorage: () => void,
     exportCanvasAsImage: () => void,
-    shareCanvas: () => void
+    shareCanvas: () => void,
+    isScreenSharing: boolean,
+    toggleScreenSharing: () => void
 }) {
     const toggleTheme = () => {
         setTheme(theme === "dark" ? "light" : "dark");
@@ -545,6 +745,15 @@ function Topbar({
                     icon={<Share2 size={20} />}
                     theme={theme}
                     tooltip="Share Canvas"
+                />
+                
+                {/* Screen sharing control */}
+                <IconButton 
+                    onClick={toggleScreenSharing}
+                    activated={isScreenSharing}
+                    icon={isScreenSharing ? <MonitorOff size={20} /> : <Monitor size={20} />}
+                    theme={theme}
+                    tooltip={isScreenSharing ? "Stop Screen Sharing" : "Start Screen Sharing"}
                 />
             </div>
         </div>
